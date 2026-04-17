@@ -58,7 +58,7 @@ Find 4–8 real verified events. Do not invent events.`
           'x-api-key': API_KEY,
           'anthropic-version':'2023-06-01',
         },
-        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2048, tools, messages }),
+        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:8192, tools, messages }),
       })
 
       if (!response.ok) {
