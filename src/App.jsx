@@ -1,37 +1,61 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-function getWeekend() {
-  const now = new Date()
-  const day = now.getDay()
-  const fri = new Date(now)
-  if (day === 0) fri.setDate(now.getDate() - 2)
-  else if (day === 6) fri.setDate(now.getDate() - 1)
-  else fri.setDate(now.getDate() + (5 - day))
+// ── Weekend helpers ──────────────────────────────────────────────────────────
+
+function buildWeekend(fri) {
   const sat = new Date(fri); sat.setDate(fri.getDate() + 1)
   const sun = new Date(fri); sun.setDate(fri.getDate() + 2)
-  const full = d => d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })
+  const full  = d => d.toLocaleDateString('en-US', { weekday:'long',  month:'long',  day:'numeric', year:'numeric' })
   const short = d => d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })
-  return {
-    fri: full(fri), sat: full(sat), sun: full(sun),
-    label: `${short(fri)} – ${short(sun)}`,
-    month: fri.toLocaleDateString('en-US', { month:'long' }),
-    year: fri.getFullYear(),
-  }
+  const label = `${short(fri)} – ${short(sun)}`
+  const calLabel = fri.toLocaleDateString('en-US', { month:'long', day:'numeric' }) +
+    ' – ' + sun.toLocaleDateString('en-US', { day:'numeric', year:'numeric' })
+  return { fri:full(fri), sat:full(sat), sun:full(sun), label, calLabel,
+    month: fri.toLocaleDateString('en-US',{month:'long'}), year:fri.getFullYear(),
+    friDate: fri }
 }
 
+function getUpcomingWeekends(count = 10) {
+  const now = new Date()
+  const day = now.getDay()
+  const first = new Date(now)
+  if (day === 0) first.setDate(now.getDate() - 2)
+  else if (day === 6) first.setDate(now.getDate() - 1)
+  else first.setDate(now.getDate() + (5 - day))
+  first.setHours(0,0,0,0)
+  return Array.from({ length: count }, (_, i) => {
+    const fri = new Date(first)
+    fri.setDate(first.getDate() + i * 7)
+    return buildWeekend(fri)
+  })
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
 const TAG_META = {
-  'Monster Trucks': { color:'#FF4D4D', bg:'rgba(255,77,77,0.1)',    icon:'🚛' },
-  'Dirt Bikes':     { color:'#FF6B35', bg:'rgba(255,107,53,0.1)',   icon:'🏍️' },
-  'Blues Music':    { color:'#4D9FFF', bg:'rgba(77,159,255,0.1)',   icon:'🎸' },
-  'Food Festival':  { color:'#4DCC88', bg:'rgba(77,204,136,0.1)',   icon:'🌮' },
-  'Beer Festival':  { color:'#FFB84D', bg:'rgba(255,184,77,0.1)',   icon:'🍺' },
-  'Wine Festival':  { color:'#CC66FF', bg:'rgba(204,102,255,0.1)',  icon:'🍷' },
-  'Family Fun':     { color:'#4DD9CC', bg:'rgba(77,217,204,0.1)',   icon:'👨‍👩‍👦' },
-  'Outdoor':        { color:'#66CC44', bg:'rgba(102,204,68,0.1)',   icon:'🌳' },
-  'Motorsports':    { color:'#FF4D4D', bg:'rgba(255,77,77,0.1)',    icon:'🏁' },
-  'Fair/Festival':  { color:'#FF9944', bg:'rgba(255,153,68,0.1)',   icon:'🎡' },
+  'Monster Trucks': { color:'#FF4D4D', bg:'rgba(255,77,77,0.1)',   icon:'🚛' },
+  'Dirt Bikes':     { color:'#FF6B35', bg:'rgba(255,107,53,0.1)',  icon:'🏍️' },
+  'Blues Music':    { color:'#4D9FFF', bg:'rgba(77,159,255,0.1)',  icon:'🎸' },
+  'Food Festival':  { color:'#4DCC88', bg:'rgba(77,204,136,0.1)',  icon:'🌮' },
+  'Beer Festival':  { color:'#FFB84D', bg:'rgba(255,184,77,0.1)',  icon:'🍺' },
+  'Wine Festival':  { color:'#CC66FF', bg:'rgba(204,102,255,0.1)', icon:'🍷' },
+  'Family Fun':     { color:'#4DD9CC', bg:'rgba(77,217,204,0.1)',  icon:'👨‍👩‍👦' },
+  'Outdoor':        { color:'#66CC44', bg:'rgba(102,204,68,0.1)',  icon:'🌳' },
+  'Motorsports':    { color:'#FF4D4D', bg:'rgba(255,77,77,0.1)',   icon:'🏁' },
+  'Fair/Festival':  { color:'#FF9944', bg:'rgba(255,153,68,0.1)',  icon:'🎡' },
 }
 const DM = { color:'#A78BFA', bg:'rgba(167,139,250,0.1)', icon:'🎪' }
+
+const ALL_INTERESTS = [
+  { icon:'🏍️', label:'Dirt Bikes' },
+  { icon:'🚛', label:'Monster Trucks' },
+  { icon:'🎸', label:'Blues' },
+  { icon:'🍺', label:'Food & Beer' },
+  { icon:'🌳', label:'Outdoor' },
+  { icon:'👦', label:'Kid-Friendly' },
+]
+
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function Loader() {
   return (
@@ -74,14 +98,12 @@ function EventCard({ ev, i }) {
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3,
         background:`linear-gradient(180deg,${m.color},${m.color}44)`,
         borderRadius:'20px 0 0 20px' }}/>
-
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, marginBottom:10 }}>
         <h3 style={{ margin:0, fontSize:'1rem', fontWeight:700, color:'#F1F5F9', lineHeight:1.35, letterSpacing:'-0.01em' }}>
           {ev.name}
         </h3>
         {ev.tag && <Tag label={ev.tag}/>}
       </div>
-
       <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:12 }}>
         {ev.date && (
           <span style={{ display:'inline-flex', alignItems:'center', gap:5,
@@ -105,9 +127,7 @@ function EventCard({ ev, i }) {
           </span>
         )}
       </div>
-
       <p style={{ margin:'0 0 14px', color:'#94A3B8', fontSize:'0.87rem', lineHeight:1.7 }}>{ev.description}</p>
-
       <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
         {ev.price && (
           <span style={{ fontSize:'0.8rem', color:'#4DCC88', fontWeight:600,
@@ -136,54 +156,190 @@ function EventCard({ ev, i }) {
   )
 }
 
-const INTERESTS = [
-  { icon:'🏍️', label:'Dirt Bikes' },
-  { icon:'🚛', label:'Monster Trucks' },
-  { icon:'🎸', label:'Blues' },
-  { icon:'🍺', label:'Food & Beer' },
-  { icon:'🌳', label:'Outdoor' },
-  { icon:'👦', label:'Kid-Friendly' },
-]
+// ── Weekend Picker ───────────────────────────────────────────────────────────
+
+function WeekendPicker({ weekends, selected, onSelect }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Group weekends by month
+  const byMonth = weekends.reduce((acc, wknd) => {
+    const mon = wknd.friDate.toLocaleDateString('en-US', { month:'long', year:'numeric' })
+    if (!acc[mon]) acc[mon] = []
+    acc[mon].push(wknd)
+    return acc
+  }, {})
+
+  return (
+    <div ref={ref} style={{ position:'relative', display:'inline-flex', justifyContent:'center' }}>
+      {/* Trigger pill */}
+      <button onClick={() => setOpen(o => !o)} style={{
+        display:'inline-flex', alignItems:'center', gap:8, cursor:'pointer',
+        background: open ? 'rgba(167,139,250,0.2)' : 'rgba(167,139,250,0.1)',
+        border:`1px solid rgba(167,139,250,${open ? '0.5' : '0.25'})`,
+        borderRadius:999, padding:'8px 20px', transition:'all 0.2s',
+      }}>
+        <span style={{ width:7, height:7, borderRadius:'50%', background:'#A78BFA',
+          boxShadow:'0 0 8px #A78BFA', display:'inline-block',
+          animation:'pulse 2s ease-in-out infinite' }}/>
+        <span style={{ color:'#C4B5FD', fontSize:'0.84rem', fontWeight:600 }}>
+          📅 {selected.label}
+        </span>
+        <span style={{ color:'#7C6FAE', fontSize:'0.7rem', transition:'transform 0.2s',
+          transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+      </button>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 10px)', left:'50%', transform:'translateX(-50%)',
+          background:'#1a1f35', border:'1px solid rgba(167,139,250,0.25)',
+          borderRadius:20, padding:'20px', zIndex:100, minWidth:300,
+          boxShadow:'0 20px 60px rgba(0,0,0,0.6)',
+          animation:'dropIn 0.2s cubic-bezier(0.22,1,0.36,1)',
+        }}>
+          <style>{`@keyframes dropIn{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
+
+          <p style={{ color:'#64748B', fontSize:'0.72rem', textTransform:'uppercase',
+            letterSpacing:'0.08em', margin:'0 0 14px', textAlign:'center' }}>
+            Select a Weekend
+          </p>
+
+          {Object.entries(byMonth).map(([month, wknds]) => (
+            <div key={month} style={{ marginBottom:16 }}>
+              <p style={{ color:'#475569', fontSize:'0.72rem', textTransform:'uppercase',
+                letterSpacing:'0.07em', margin:'0 0 8px', fontWeight:600 }}>{month}</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {wknds.map((wknd, i) => {
+                  const isSelected = wknd.label === selected.label
+                  const isPast = wknd.friDate < new Date() && !isSelected
+                  return (
+                    <button key={i} onClick={() => { onSelect(wknd); setOpen(false) }}
+                      disabled={false}
+                      style={{
+                        display:'flex', alignItems:'center', justifyContent:'space-between',
+                        padding:'10px 14px', borderRadius:12, border:'none', cursor:'pointer',
+                        background: isSelected
+                          ? 'linear-gradient(135deg,rgba(124,58,237,0.4),rgba(99,179,237,0.2))'
+                          : 'rgba(255,255,255,0.04)',
+                        outline: isSelected ? '1px solid rgba(167,139,250,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                        transition:'all 0.15s', textAlign:'left',
+                      }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background='rgba(167,139,250,0.1)' }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background='rgba(255,255,255,0.04)' }}
+                    >
+                      <span style={{ color: isSelected ? '#C4B5FD' : isPast ? '#334155' : '#94A3B8',
+                        fontSize:'0.85rem', fontWeight: isSelected ? 700 : 400 }}>
+                        {wknd.calLabel}
+                      </span>
+                      {i === 0 && !isSelected && (
+                        <span style={{ fontSize:'0.65rem', color:'#A78BFA', fontWeight:700,
+                          background:'rgba(167,139,250,0.15)', padding:'2px 8px', borderRadius:20 }}>
+                          THIS WEEK
+                        </span>
+                      )}
+                      {isSelected && (
+                        <span style={{ color:'#A78BFA', fontSize:'0.9rem' }}>✓</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Interest Toggles ─────────────────────────────────────────────────────────
+
+function InterestToggle({ icon, label, active, onToggle }) {
+  return (
+    <button onClick={onToggle} style={{
+      display:'inline-flex', alignItems:'center', gap:6,
+      background: active ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.03)',
+      border: active ? '1px solid rgba(167,139,250,0.45)' : '1px solid rgba(255,255,255,0.07)',
+      borderRadius:999, padding:'7px 15px',
+      fontSize:'0.78rem', color: active ? '#C4B5FD' : '#475569',
+      fontWeight: active ? 600 : 400, cursor:'pointer',
+      transition:'all 0.18s', outline:'none',
+      textDecoration: active ? 'none' : 'line-through',
+      textDecorationColor:'rgba(255,255,255,0.15)',
+    }}>
+      <span style={{ opacity: active ? 1 : 0.35, transition:'opacity 0.18s' }}>{icon}</span>
+      {label}
+      {active && <span style={{ width:5, height:5, borderRadius:'50%', background:'#A78BFA',
+        marginLeft:2, boxShadow:'0 0 6px #A78BFA' }}/>}
+    </button>
+  )
+}
+
+// ── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const wknd = getWeekend()
+  const weekends = getUpcomingWeekends(10)
+  const [selectedWknd, setSelectedWknd] = useState(weekends[0])
+  const [activeInterests, setActiveInterests] = useState(
+    Object.fromEntries(ALL_INTERESTS.map(i => [i.label, true]))
+  )
+  const [customInterest, setCustomInterest] = useState('')
+
   const [events,  setEvents]  = useState([])
   const [summary, setSummary] = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
   const [stamp,   setStamp]   = useState('')
 
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem('vfs-cache')
-      if (cached) {
-        const { data, savedAt, weekend } = JSON.parse(cached)
-        if (weekend === wknd.label && data?.events?.length) {
-          setEvents(data.events)
-          setSummary(data.summary ?? '')
-          setStamp(`${new Date(savedAt).toLocaleTimeString()} (cached)`)
-        }
-      }
-    } catch {}
-  }, [])
+  function toggleInterest(label) {
+    setActiveInterests(prev => ({ ...prev, [label]: !prev[label] }))
+  }
+
+  const enabledInterests = ALL_INTERESTS
+    .filter(i => activeInterests[i.label])
+    .map(i => i.label)
+  const allInterests = customInterest.trim()
+    ? [...enabledInterests, customInterest.trim()]
+    : enabledInterests
 
   const go = async () => {
+    if (allInterests.length === 0) {
+      alert('Please select at least one interest before searching.')
+      return
+    }
     setLoading(true); setError(''); setEvents([]); setSummary(''); setStamp('')
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fri:wknd.fri, sun:wknd.sun, month:wknd.month, year:wknd.year }),
+        body: JSON.stringify({
+          fri: selectedWknd.fri,
+          sun: selectedWknd.sun,
+          month: selectedWknd.month,
+          year: selectedWknd.year,
+          interests: allInterests,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Server error')
       if (!Array.isArray(data.events)) throw new Error('Unexpected response')
       setEvents(data.events)
       setSummary(data.summary ?? '')
-      const ts = new Date().toLocaleTimeString()
-      setStamp(ts)
+      setStamp(new Date().toLocaleTimeString())
       try {
-        localStorage.setItem('vfs-cache', JSON.stringify({ data, savedAt:Date.now(), weekend:wknd.label }))
+        localStorage.setItem('vfs-cache', JSON.stringify({
+          data, savedAt: Date.now(), weekend: selectedWknd.label,
+        }))
       } catch {}
     } catch(e) {
       setError(e.message ?? 'Something went wrong.')
@@ -192,13 +348,28 @@ export default function App() {
     }
   }
 
+  // Load cache on mount
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('vfs-cache')
+      if (cached) {
+        const { data, savedAt, weekend } = JSON.parse(cached)
+        if (weekend === weekends[0].label && data?.events?.length) {
+          setEvents(data.events)
+          setSummary(data.summary ?? '')
+          setStamp(`${new Date(savedAt).toLocaleTimeString()} (cached)`)
+        }
+      }
+    } catch {}
+  }, [])
+
   return (
     <div style={{ minHeight:'100dvh', background:'#0A0F1E', color:'#F1F5F9',
       fontFamily:"-apple-system,'Inter',sans-serif", paddingBottom:64 }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 
-      {/* HEADER */}
-      <div style={{ position:'relative', overflow:'hidden', paddingBottom:32 }}>
+      {/* ── HEADER ── */}
+      <div style={{ position:'relative', overflow:'visible', paddingBottom:32 }}>
         <div style={{ position:'absolute', top:-120, left:-80, width:400, height:400, borderRadius:'50%',
           background:'radial-gradient(circle,rgba(167,139,250,0.12),transparent 70%)', pointerEvents:'none' }}/>
         <div style={{ position:'absolute', top:-60, right:-100, width:350, height:350, borderRadius:'50%',
@@ -221,37 +392,79 @@ export default function App() {
             WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
             Valtin Family Fun Search
           </h1>
-
           <p style={{ color:'#475569', fontSize:'0.78rem', margin:'0 0 20px',
             letterSpacing:'0.06em', textTransform:'uppercase' }}>
             Clearwater FL · Family · Blues · Motorsports
           </p>
 
-          <div style={{ display:'inline-flex', alignItems:'center', gap:8,
-            background:'rgba(167,139,250,0.1)', border:'1px solid rgba(167,139,250,0.25)',
-            borderRadius:999, padding:'8px 20px' }}>
-            <span style={{ width:7, height:7, borderRadius:'50%', background:'#A78BFA',
-              boxShadow:'0 0 8px #A78BFA', display:'inline-block',
-              animation:'pulse 2s ease-in-out infinite' }}/>
-            <span style={{ color:'#C4B5FD', fontSize:'0.84rem', fontWeight:600 }}>📅 {wknd.label}</span>
-          </div>
-          <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+          {/* ── WEEKEND PICKER ── */}
+          <WeekendPicker
+            weekends={weekends}
+            selected={selectedWknd}
+            onSelect={(wknd) => {
+              setSelectedWknd(wknd)
+              setEvents([])
+              setSummary('')
+              setStamp('')
+            }}
+          />
         </div>
       </div>
 
-      {/* BODY */}
+      {/* ── BODY ── */}
       <div style={{ maxWidth:640, margin:'0 auto', padding:'0 16px' }}>
 
-        <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:24, justifyContent:'center' }}>
-          {INTERESTS.map(({ icon, label }) => (
-            <span key={label} style={{ display:'inline-flex', alignItems:'center', gap:6,
-              background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
-              borderRadius:999, padding:'6px 14px', fontSize:'0.78rem', color:'#94A3B8', fontWeight:500 }}>
-              {icon} {label}
-            </span>
-          ))}
+        {/* ── INTEREST TOGGLES ── */}
+        <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)',
+          borderRadius:18, padding:'18px 18px 16px', marginBottom:20 }}>
+          <p style={{ color:'#475569', fontSize:'0.72rem', textTransform:'uppercase',
+            letterSpacing:'0.08em', margin:'0 0 12px', fontWeight:600 }}>
+            Filter Interests — tap to toggle
+          </p>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:14 }}>
+            {ALL_INTERESTS.map(({ icon, label }) => (
+              <InterestToggle
+                key={label}
+                icon={icon}
+                label={label}
+                active={activeInterests[label]}
+                onToggle={() => toggleInterest(label)}
+              />
+            ))}
+          </div>
+
+          {/* Custom interest input */}
+          <div style={{ position:'relative' }}>
+            <input
+              type="text"
+              placeholder="+ Add your own interest…"
+              value={customInterest}
+              onChange={e => setCustomInterest(e.target.value)}
+              style={{
+                width:'100%', padding:'10px 16px', borderRadius:12,
+                background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
+                color:'#E2E8F0', fontSize:'0.85rem', outline:'none',
+                fontFamily:"-apple-system,'Inter',sans-serif",
+                transition:'border-color 0.2s', boxSizing:'border-box',
+              }}
+              onFocus={e => e.target.style.borderColor='rgba(167,139,250,0.45)'}
+              onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.08)'}
+            />
+            {customInterest && (
+              <button onClick={() => setCustomInterest('')} style={{
+                position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:'1rem',
+              }}>×</button>
+            )}
+          </div>
+          {customInterest.trim() && (
+            <p style={{ color:'#7C6FAE', fontSize:'0.75rem', margin:'8px 0 0' }}>
+              ✓ "{customInterest.trim()}" will be included in the search
+            </p>
+          )}
         </div>
 
+        {/* ── SEARCH BUTTON ── */}
         <button onClick={go} disabled={loading} style={{
           width:'100%', padding:'17px 28px', marginBottom:24, borderRadius:16, border:'none',
           background: loading
@@ -263,16 +476,17 @@ export default function App() {
           boxShadow: loading ? 'none' : '0 8px 32px rgba(124,58,237,0.35)',
           transition:'all 0.2s',
         }}>
-          {loading ? '🔍  Searching the web for events…' : "🔍  Find This Weekend's Events"}
+          {loading ? '🔍  Searching the web for events…' : "🔍  Find Events for This Weekend"}
         </button>
 
+        {/* Idle state */}
         {!loading && !events.length && !error && (
           <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)',
             borderRadius:20, padding:'32px 24px', textAlign:'center' }}>
             <div style={{ fontSize:'2rem', marginBottom:12 }}>🗓️</div>
             <p style={{ color:'#E2E8F0', fontWeight:600, fontSize:'1rem', margin:'0 0 8px' }}>Ready when you are</p>
             <p style={{ color:'#475569', fontSize:'0.85rem', lineHeight:1.7, margin:0 }}>
-              Tap the button to get a live-searched list of events this weekend near Clearwater — tailored to your family.
+              Pick a weekend, toggle your interests, then hit the button to find events near Clearwater.
             </p>
           </div>
         )}
@@ -300,9 +514,10 @@ export default function App() {
           <div style={{ display:'flex', justifyContent:'center', alignItems:'center',
             gap:12, marginTop:20, flexWrap:'wrap' }}>
             <span style={{ color:'#1E293B', fontSize:'0.72rem' }}>Updated {stamp}</span>
-            <button onClick={go} disabled={loading} style={{ background:'rgba(255,255,255,0.04)',
-              border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#94A3B8',
-              padding:'8px 18px', cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
+            <button onClick={go} disabled={loading} style={{
+              background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
+              borderRadius:10, color:'#94A3B8', padding:'8px 18px',
+              cursor:'pointer', fontSize:'0.8rem', fontWeight:500 }}>
               🔄 Refresh
             </button>
           </div>
